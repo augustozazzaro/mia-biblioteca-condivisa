@@ -1,444 +1,197 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Biblioteca Sarno & Zazzaro</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Oswald:wght@700&display=swap" rel="stylesheet">
-<style>
-  /* DESIGN FINALE: TEMA CHIARO, ICONE MONOCOLORE, ANIMAZIONI */
-  :root {
-    --color-primary-blue-night: #003366;    /* Blu Notte (Bottoni, Sfondo Controlli) */
-    --color-accent-red-brick: #A54738;      /* Rosso Mattone (Titoli, Accenti) */
-    --color-background-light: #F8F8F8;      /* Sfondo chiaro morbido */
-    --color-panel-bg: #FFFFFF;              /* Sfondo Pannelli Bianco Puro */
-    --color-text-dark: #333333;             /* Testo scuro */
-    --color-text-subtle: #666;              
-    --color-shadow-subtle: rgba(0, 0, 0, 0.1);
-    --color-delete: #DC3545;
-    --color-edit: #28A745;
-    --border-radius-main: 15px;
-  }
+<script type="module"> 
+// NOTA: Abbiamo cambiato <script> in <script type="module"> per usare 'import'
+// ----------------------------------------------------------------------------------
+// PASSO 1: LIBRERIE FIREBASE E CONFIGURAZIONE (INTEGRATE)
+// ----------------------------------------------------------------------------------
 
-  body {
-    font-family: 'Poppins', sans-serif;
-    margin: 0;
-    padding: 40px 15px;
-    background: var(--color-background-light);
-    color: var(--color-text-dark);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-  
-  #main-container {
-    width: 100%;
-    max-width: 950px;
-    transition: all 0.5s ease;
-    padding: 0 15px;
-  }
+// Import necessari per l'App e per Firestore (il database)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-  /* KEYFRAMES PER ANIMAZIONI */
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
+// Import Analytics, ma non è strettamente necessario per l'app
+// import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics.js";
 
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
 
-  @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.03); }
-    100% { transform: scale(1); }
-  }
+// CONFIGURAZIONE PERSONALE PRESA DALLA CONSOLE
+const firebaseConfig = {
+    apiKey: "AIzaSyCOD5J_2s4AOXFWpgq4_O5PLox-Kb0xDXQ",
+    authDomain: "biblioteca-sarno-e-zazzaro.firebaseapp.com",
+    projectId: "biblioteca-sarno-e-zazzaro",
+    storageBucket: "biblioteca-sarno-e-zazzaro.firebasestorage.app",
+    messagingSenderId: "47424170960",
+    appId: "1:47424170960:web:f88feb1c208383682467d5",
+    measurementId: "G-GDLWFWX9JP"
+};
 
-  /* TITOLO STRUTTURATO */
-  #main-title {
-    text-align: center;
-    margin-bottom: 40px;
-    animation: fadeIn 1s ease-out;
-  }
-  #main-title h1 {
-    margin: 0;
-    font-size: 3.5em;
-    font-family: 'Oswald', sans-serif;
-    font-weight: 700;
-    color: var(--color-primary-blue-night);
-    letter-spacing: -1px;
-  }
-  #main-title p {
-    margin: 0;
-    font-size: 1.5em;
-    font-weight: 600;
-    color: var(--color-accent-red-brick);
-    padding-top: 5px;
-  }
 
-  /* BARRA DI CONTROLLO */
-  #control-bar {
-      display: flex;
-      gap: 15px;
-      margin-bottom: 30px;
-      padding: 15px;
-      background: var(--color-panel-bg);
-      border-radius: var(--border-radius-main);
-      box-shadow: 0 5px 15px var(--color-shadow-subtle);
-      animation: fadeInUp 0.8s ease-out 0.2s backwards;
-  }
-  #searchQuery {
-      flex-grow: 1;
-      font-size: 1.1em;
-      padding: 14px 20px;
-      border: 1px solid #DDD;
-      border-radius: 10px;
-      transition: all 0.3s ease;
-  }
-  #searchQuery:focus {
-      border-color: var(--color-accent-red-brick);
-      box-shadow: 0 0 0 3px rgba(165, 71, 56, 0.1);
-      outline: none;
-      transform: scale(1.01);
-  }
+// Inizializzazione di Firebase e Firestore
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const libraryCollection = collection(db, "libri"); // Collezione chiamata 'libri'
 
-  /* BOTTONE AGGIUNGI (+) */
-  .btn-add {
-      width: 50px; 
-      min-width: 50px;
-      height: 50px;
-      padding: 0;
-      font-size: 2.2em;
-      line-height: 50px;
-      text-align: center;
-      background: var(--color-accent-red-brick);
-      color: white;
-      border-radius: 10px;
-      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-      box-shadow: 0 4px 10px rgba(165, 71, 56, 0.4);
-      margin-top: 1px;
-  }
-  .btn-add:hover {
-      background: #C45F4D;
-      transform: scale(1.05) rotate(5deg);
-  }
-
-  /* STILE GENERALE BOTTONI */
-  .btn {
-    padding: 12px 20px;
-    background: var(--color-primary-blue-night);
-    color: white;
-    border: none;
-    cursor: pointer;
-    border-radius: 8px;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
-    font-weight: 600;
-    text-transform: uppercase;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
-  }
-  .btn.delete-btn { background: var(--color-delete); }
-  .btn.delete-btn:hover { background: #B02A37; animation: pulse 0.5s infinite; }
-  .btn.edit-btn { background: var(--color-edit); }
-  .btn.edit-btn:hover { background: #218838; animation: pulse 0.5s infinite; }
-
-  /* PANNELLI */
-  .panel {
-    padding: 30px;
-    border-radius: var(--border-radius-main);
-    margin-top: 30px;
-    background: var(--color-panel-bg);
-    box-shadow: 0 10px 40px var(--color-shadow-subtle);
-    border: 1px solid #EEE;
-    display: none;
-    width: 100%;
-    z-index: 20;
-    position: relative;
-    animation: fadeInUp 0.5s ease-out;
-  }
-  .panel h2 {
-      color: var(--color-accent-red-brick);
-      border-bottom: 2px solid #EEE;
-      padding-bottom: 15px;
-      margin-top: 0;
-      font-weight: 700;
-      font-size: 1.8em;
-  }
-  
-  /* Elemento Libro Lista */
-  #book-list-container {
-      max-height: 60vh;
-      overflow-y: auto;
-      padding: 15px;
-      margin-top: 20px;
-  }
-  .book {
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-    background: var(--color-panel-bg);
-    border-radius: 12px; /* Aumentato per uniformità visiva */
-    margin: 10px 0;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
-    border-left: 5px solid transparent;
-  }
-  .book:hover {
-      background: #F0F0F0;
-      transform: translateX(5px);
-      border-left: 5px solid var(--color-primary-blue-night);
-  }
-  
-  .book-title {
-      font-size: 1.4em;
-      font-weight: 700;
-      color: var(--color-accent-red-brick);
-      margin-bottom: 5px;
-      line-height: 1.3;
-  }
-  .book-author {
-      font-size: 1.0em;
-      font-weight: 400;
-      color: var(--color-text-dark);
-      margin-bottom: 15px;
-      padding-bottom: 5px;
-      border-bottom: 1px dashed #EEE;
-  }
-  .book-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-top: 10px;
-  }
-  
-  /* ENFASI SUL LUOGO (POSIZIONE) */
-  #locationBox {
-      background: var(--color-primary-blue-night);
-      color: white;
-      padding: 18px;
-      border-radius: 12px;
-      margin-bottom: 25px;
-      font-weight: 700;
-      font-size: 1.5em;
-      box-shadow: 0 6px 15px rgba(0, 51, 102, 0.3);
-      text-align: center;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-  }
-  .location-tag { 
-      background: var(--color-primary-blue-night);
-      color: white;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.85em;
-      font-weight: 600;
-  }
-
-  /* DETTAGLI SCHEDA LIBRO SINGOLO */
-  #singleBookDetails {
-      padding-top: 10px; 
-  }
-  #singleBookDetails p {
-      margin: 12px 0;
-      font-size: 1.1em;
-      color: var(--color-text-dark);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-  }
-  #singleBookDetails b {
-      color: var(--color-primary-blue-night);
-      font-weight: 700;
-  }
-  
-  /* STILE ICONE MONOCOLORE E LEGIBILI */
-  .detail-icon, .list-icon {
-      color: var(--color-accent-red-brick); 
-      font-size: 1.2em;
-      line-height: 1; 
-      filter: grayscale(100%); 
-  }
-
-  /* Icone specifiche con dimensioni aumentate */
-  #searchQuery::placeholder { 
-    font-size: 1.4em; 
-    line-height: 1.2;
-    color: #999;
-  }
-  .btn.edit-btn .detail-icon {
-    font-size: 1.6em; 
-  }
-  
-  /* Input/Select styling with animations */
-  input, select, textarea {
-    padding: 12px;
-    width: 100%;
-    margin: 5px 0 15px 0;
-    border-radius: 8px;
-    border: 1px solid #CCC;
-    box-sizing: border-box;
-    font-family: 'Poppins', sans-serif;
-    font-size: 1em;
-    transition: all 0.3s ease;
-  }
-  input:focus, select:focus, textarea:focus {
-    border-color: var(--color-primary-blue-night);
-    box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.1);
-    outline: none;
-  }
-  textarea { resize: vertical; }
-  
-  /* RESPONSIVE DESIGN */
-  @media (max-width: 768px) {
-    h1 { font-size: 2.5em; }
-    #main-title p { font-size: 1.2em; }
-    #control-bar { padding: 10px; }
-    .btn-add { width: 45px; min-width: 45px; height: 45px; line-height: 45px; }
-    #searchQuery { padding: 10px 15px; }
-    .panel h2 { font-size: 1.5em; }
-    #locationBox { font-size: 1.2em; padding: 15px; }
-  }
-</style>
-</head>
-<body>
-<div id="main-container">
-
-    <div id="main-title">
-        <h1>BIBLIOTECA</h1>
-        <p>Sarno & Zazzaro</p>
-    </div>
-
-    <div id="control-bar">
-        <input id="searchQuery" placeholder="🔎 Cerca Titolo, Autore, Genere o Anno..." oninput="dynamicSearch()" />
-        <button class="btn-add" onclick="showAddPanel()">+</button>
-    </div>
-
-    <div id="viewPanel" class="panel">
-        <h2 id="viewPanelTitle" style="color: var(--color-primary-blue-night);"></h2>
-        
-        <div id="locationBox">
-            </div>
-
-        <div id="singleBookDetails">
-            </div>
-
-        <div style="margin-top: 20px;">
-            <label for="bookNotesArea" style="font-weight: 600; color: var(--color-text-dark);"><span class="detail-icon">✎</span> Note sul Libro:</label>
-            <textarea id="bookNotesArea" placeholder="Aggiungi qui le tue note. Verranno salvate automaticamente..."></textarea>
-            
-            <div style="display:flex; justify-content: space-between; margin-top: 20px; gap: 10px;">
-                <button class="btn edit-btn" onclick="showEditPanel()"><span class="detail-icon">⚙</span> Modifica Dettagli</button>
-                <button class="btn" onclick="hideAllPanels()">← Torna alla Lista</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="editPanel" class="panel">
-        <h2 id="editPanelTitle">Modifica Dettagli</h2>
-        
-        <div id="editFields">
-            <input type="hidden" id="edit-temp-id" /> 
-            
-            <div class="detail-field">
-                <label for="edit-author"><span class="detail-icon">👤</span> Autore:</label>
-                <input id="edit-author" />
-            </div>
-            <div class="detail-field">
-                <label for="edit-title"><span class="detail-icon">📖</span> Titolo:</label>
-                <input id="edit-title" />
-            </div>
-            <div class="detail-field" style="display: flex; gap: 15px;">
-                <div style="flex: 1;">
-                    <label for="edit-year"><span class="detail-icon">📅</span> Anno:</label>
-                    <input id="edit-year" type="number" />
-                </div>
-                <div style="flex: 1;">
-                    <label for="edit-pages"><span class="detail-icon">📄</span> Pagine:</label>
-                    <input id="edit-pages" type="number" />
-                </div>
-            </div>
-            <div class="detail-field">
-                <label for="edit-genre"><span class="detail-icon">🏷️</span> Genere:</label>
-                <select id="edit-genre"></select>
-            </div>
-            <div class="detail-field">
-                <label for="edit-location"><span class="detail-icon">◆</span> Posizione:</label>
-                <select id="edit-location"></select>
-            </div>
-        </div>
-
-        <div style="display:flex; justify-content: space-between; margin-top: 30px; gap: 10px;">
-            <button class="btn edit-btn" onclick="saveEditedBook()">✓ Salva Modifiche</button>
-            <button class="btn delete-btn" onclick="confirmDelete(document.getElementById('edit-title').value)">🗑️ Elimina</button>
-            <button class="btn" onclick="viewBookDetails(currentBookIdToEdit)">✕ Annulla</button>
-        </div>
-    </div>
-
-    <div id="addPanel" class="panel">
-        <h2>Aggiungi Nuovo Libro</h2>
-        <div class="detail-field">
-            <input id="author" placeholder="👤 Autore (Solo lettere)" />
-        </div>
-        <div class="detail-field">
-            <input id="title" placeholder="📖 Titolo" />
-        </div>
-        <div style="display: flex; gap: 15px;">
-            <div style="flex: 1;">
-                <input id="year" placeholder="📅 Anno di Pubblicazione" type="number" />
-            </div>
-            <div style="flex: 1;">
-                <input id="pages" placeholder="📄 Numero Pagine" type="number" />
-            </div>
-        </div>
-        
-        <select id="genre"></select>
-        <select id="location"></select>
-        <textarea id="notes" placeholder="✎ Note iniziali (Opzionale)..."></textarea>
-        
-        <div style="display:flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-            <button class="btn" onclick="hideAllPanels()">✕ Annulla</button>
-            <button class="btn" onclick="addBook()">+ Aggiungi</button>
-        </div>
-    </div>
-
-    <div id="book-list-container">
-        </div>
-
-<script>
-let library = [];
-let nextId = 1; 
+// ----------------------------------------------------------------------------------
+// DATI LOCALI E COSTANTI
+// ----------------------------------------------------------------------------------
+let library = []; 
 let currentBookIdToEdit = null; 
+let nextId = 1; // Mantenuto solo per la compatibilità ma non usato per ID reali
 
-// --- DATI AGGIORNATI ---
-const LOCATIONS = [
-    "INGRESSO", "CAMERA ENRICO", "CAMERA AUGUSTO", "CAMERA EMMA E ALBERTO", "SALOTTO", "CUCINA", "UNIVERSITÀ", "POLLA"
-];
-const GENRES = [
-    "Romanzo", "Saggio", "Fantasy", "Thriller", "Giallo", "Storico", "Biografia", 
-    "Poesia", "Fantascienza", "Horror", "Bambini", "Graphic Novel", "Filosofia", 
-    "Economia", "Finanza", "Scienza", "Arte", "Altro" 
-];
+const LOCATIONS = ["INGRESSO", "CAMERA ENRICO", "CAMERA AUGUSTO", "CAMERA EMMA E ALBERTO", "SALOTTO", "CUCINA", "UNIVERSITÀ", "POLLA"];
+const GENRES = ["Romanzo", "Saggio", "Fantasy", "Thriller", "Giallo", "Storico", "Biografia", "Poesia", "Fantascienza", "Horror", "Bambini", "Graphic Novel", "Filosofia", "Economia", "Finanza", "Scienza", "Arte", "Altro"];
 
-// --- UTILITY & PERSISTENZA ---
+
+// --- FUNZIONI DI DATABASE ASINCRONE (RESCRIZIONE) ---
+
+async function loadLibrary() {
+    console.log("Tentativo di caricamento dati dal cloud...");
+    library = [];
+    try {
+        const querySnapshot = await getDocs(libraryCollection);
+        querySnapshot.forEach((doc) => {
+            // Salviamo l'ID di Firestore (doc.id) come 'uniqueId'
+            library.push({ ...doc.data(), uniqueId: doc.id }); 
+        });
+        
+        library.sort((a, b) => a.title.localeCompare(b.title));
+
+        document.getElementById('searchQuery').value = ''; 
+        dynamicSearch(); 
+        console.log(`Caricamento completato. Trovati ${library.length} libri.`);
+        
+    } catch (e) {
+        console.error("Errore durante il caricamento da Firestore: ", e);
+        // Alert specifico per debug iniziale:
+        alert("❌ Errore! Controlla la console di Firebase: hai abilitato Firestore Database in Modalità Test?");
+        document.getElementById('book-list-container').innerHTML = '<p style="text-align:center; color:#666; padding: 20px;">Non è stato possibile caricare i dati. Database offline?</p>';
+    }
+}
+
+
+// --- FUNZIONE INSERIMENTO LIBRO ---
+
+async function addBook() {
+  const author = document.getElementById('author').value.trim();
+  const title = document.getElementById('title').value.trim();
+  const yearStr = document.getElementById('year').value.trim();
+  const pagesStr = document.getElementById('pages').value.trim();
+  const genre = document.getElementById('genre').value;
+  const location = document.getElementById('location').value;
+  const notes = document.getElementById('notes').value.trim();
+
+  if (!author || !title || !yearStr || !genre || genre === '' || !location) {
+    alert('⚠️ Attenzione! Compila tutti i campi obbligatori.');
+    return;
+  }
+  if (!/^[a-zA-Z\sàèéìòùáéíóúçñ']+$/.test(author)) {
+    alert('❌ Errore! Il campo Autore deve contenere solo lettere.');
+    return;
+  }
+  const year = parseInt(yearStr);
+  const pages = pagesStr ? parseInt(pagesStr) : 0;
+  const currentYear = new Date().getFullYear();
+  if (isNaN(year) || yearStr.length > 4 || year < 0 || year > currentYear) {
+    alert(`❌ Errore! Anno di pubblicazione non valido.`);
+    return;
+  }
+  if (isNaN(pages) || pages < 0) {
+    alert(`❌ Errore! Numero di pagine non valido.`);
+    return;
+  }
+  
+  const newBookData = { 
+    author: capitalizeWords(author), 
+    title: capitalizeWords(title), 
+    year: year, 
+    pages: pages,
+    genre: capitalizeWords(genre), 
+    location: location,
+    notes: notes 
+  };
+  
+  try {
+      // Invia i dati al database, Firebase creerà un ID unico
+      await addDoc(libraryCollection, newBookData);
+      alert(`➕ Libro Aggiunto! "${newBookData.title}" è ora condiviso nel Cloud.`);
+      hideAllPanels();
+      loadLibrary(); // Ricarica i dati per aggiornare la lista in tempo reale per tutti
+  } catch (e) {
+      console.error("Errore durante l'aggiunta a Firestore: ", e);
+      alert("❌ Errore! Non è stato possibile aggiungere il libro al database.");
+  }
+}
+
+
+// --- FUNZIONE MODIFICA (AGGIORNATA) ---
+
+async function saveEditedBook() {
+    const uniqueId = currentBookIdToEdit;
+    if (uniqueId === null) {
+        alert('Errore: Nessun libro selezionato per la modifica.');
+        return;
+    }
+
+    const author = document.getElementById('edit-author').value.trim();
+    const title = document.getElementById('edit-title').value.trim();
+    const yearStr = document.getElementById('edit-year').value.trim();
+    const pagesStr = document.getElementById('edit-pages').value.trim();
+    const genre = document.getElementById('edit-genre').value;
+    const location = document.getElementById('edit-location').value;
+    
+    // Validazione (omessa per brevità ma presente)
+    if (!author || !title || !yearStr || !genre || genre === '' || !location) {
+        alert('⚠️ Attenzione! Compila tutti i campi obbligatori.');
+        return;
+    }
+    if (!/^[a-zA-Z\sàèéìòùáéíóúçñ']+$/.test(author)) { alert('❌ Errore! Il campo Autore deve contenere solo lettere.'); return; }
+    const year = parseInt(yearStr);
+    const pages = pagesStr ? parseInt(pagesStr) : 0;
+    const currentYear = new Date().getFullYear();
+    if (isNaN(year) || yearStr.length > 4 || year < 0 || year > currentYear) { alert(`❌ Errore! Anno non valido.`); return; }
+    if (isNaN(pages) || pages < 0) { alert(`❌ Errore! Numero di pagine non valido.`); return; }
+    
+    saveNotesFromViewPanel();
+    const oldBook = library.find(b => b.uniqueId === uniqueId);
+
+    const updatedData = {
+        author: capitalizeWords(author),
+        title: capitalizeWords(title),
+        year: year,
+        pages: pages,
+        genre: capitalizeWords(genre),
+        location: location,
+        notes: oldBook ? oldBook.notes : '' // Usa le note salvate dall'array locale
+    };
+    
+    try {
+        // Riferimento al documento usando l'ID di Firestore (uniqueId)
+        const bookRef = doc(db, "libri", uniqueId);
+        await updateDoc(bookRef, updatedData);
+        alert('✅ Modifica Riuscita! Il libro è stato aggiornato nel Cloud.');
+        hideAllPanels();
+        loadLibrary();
+    } catch (e) {
+        console.error("Errore durante la modifica su Firestore: ", e);
+        alert('❌ Errore critico! Impossibile salvare le modifiche.');
+    }
+}
+
+
+// --- FUNZIONE ELIMINAZIONE (AGGIORNATA) ---
+
+async function deleteBook(uniqueId) {
+    try {
+        await deleteDoc(doc(db, "libri", uniqueId));
+        alert('🗑️ Eliminazione Riuscita! Il libro è stato rimosso dal Cloud.');
+        hideAllPanels();
+        loadLibrary();
+    } catch (e) {
+        console.error("Errore durante l'eliminazione su Firestore: ", e);
+        alert('❌ Errore! Non è stato possibile eliminare il libro.');
+    }
+}
+
+
+// --- RESTO DEL CODICE (Non richiede modifiche, solo la rimozione di localStorage.setItem) ---
 
 function capitalizeWords(str) {
     if (!str) return '';
@@ -447,31 +200,19 @@ function capitalizeWords(str) {
     ).join(' ');
 }
 
-function saveLibrary() {
-  localStorage.setItem('homeLibraryData', JSON.stringify(library));
-}
+function saveNotesFromViewPanel() {
+    // La logica salva solo nell'array locale, la sincronizzazione al cloud avviene solo con saveEditedBook
+    if (currentBookIdToEdit !== null) {
+        const notesArea = document.getElementById('bookNotesArea');
+        const book = library.find(b => b.uniqueId === currentBookIdToEdit);
 
-function loadLibrary() {
-  populateSelects();
-  const stored = localStorage.getItem('homeLibraryData');
-  if (stored) {
-    let loadedLibrary = JSON.parse(stored);
-    
-    loadedLibrary = loadedLibrary.map(book => {
-        if (!book.uniqueId) {
-            book.uniqueId = nextId++;
+        if (book && notesArea) {
+            if (book.notes !== notesArea.value) {
+                book.notes = notesArea.value.trim();
+                // NON SALVIAMO QUI SU FIRESTORE (troppe chiamate), la nota sarà inclusa nel saveEditedBook o al prossimo refresh
+            }
         }
-        if (book.pages === undefined) book.pages = 0;
-        if (book.notes === undefined) book.notes = '';
-        delete book.id; 
-        return book;
-    });
-
-    library = loadedLibrary;
-    const maxId = library.reduce((max, book) => Math.max(max, book.uniqueId || 0), 0);
-    nextId = maxId + 1;
-  }
-  dynamicSearch();
+    }
 }
 
 function populateSelects() {
@@ -502,8 +243,6 @@ function populateSelects() {
 }
 
 
-// --- GESTIONE PANNELLI ---
-
 function hideAllPanels() {
     saveNotesFromViewPanel();
     
@@ -527,40 +266,6 @@ function showAddPanel() {
     document.getElementById('notes').value = '';
 }
 
-function showEditPanel() {
-    document.getElementById('viewPanel').style.display = 'none';
-    document.getElementById('editPanel').style.display = 'block';
-    
-    saveNotesFromViewPanel();
-    
-    const book = library.find(b => b.uniqueId === currentBookIdToEdit);
-
-    document.getElementById('editPanelTitle').textContent = `Modifica: ${book.title}`;
-    
-    document.getElementById('edit-author').value = book.author;
-    document.getElementById('edit-title').value = book.title;
-    document.getElementById('edit-year').value = book.year;
-    document.getElementById('edit-pages').value = book.pages;
-    document.getElementById('edit-genre').value = book.genre;
-    document.getElementById('edit-location').value = book.location;
-}
-
-
-// --- FUNZIONE MODIFICA/SALVATAGGIO NOTE ---
-
-function saveNotesFromViewPanel() {
-    if (currentBookIdToEdit !== null) {
-        const notesArea = document.getElementById('bookNotesArea');
-        const book = library.find(b => b.uniqueId === currentBookIdToEdit);
-
-        if (book && notesArea) {
-            if (book.notes !== notesArea.value) {
-                book.notes = notesArea.value.trim();
-                saveLibrary();
-            }
-        }
-    }
-}
 
 function viewBookDetails(uniqueId) {
     saveNotesFromViewPanel(); 
@@ -592,113 +297,16 @@ function viewBookDetails(uniqueId) {
     document.getElementById('viewPanel').style.display = 'block';
 }
 
-function saveEditedBook() {
+function confirmDelete(bookTitle) {
     const uniqueId = currentBookIdToEdit;
-    if (uniqueId === null) {
-        alert('Errore: Nessun libro selezionato per la modifica.');
-        return;
-    }
-
-    const author = document.getElementById('edit-author').value.trim();
-    const title = document.getElementById('edit-title').value.trim();
-    const yearStr = document.getElementById('edit-year').value.trim();
-    const pagesStr = document.getElementById('edit-pages').value.trim();
-    const genre = document.getElementById('edit-genre').value;
-    const location = document.getElementById('edit-location').value;
-
-    if (!author || !title || !yearStr || !genre || genre === '' || !location) {
-        alert('⚠️ Attenzione! Compila tutti i campi obbligatori.');
-        return;
-    }
-    if (!/^[a-zA-Z\sàèéìòùáéíóúçñ']+$/.test(author)) {
-        alert('❌ Errore! Il campo Autore deve contenere solo lettere.');
-        return;
-    }
-    const year = parseInt(yearStr);
-    const pages = pagesStr ? parseInt(pagesStr) : 0;
-    const currentYear = new Date().getFullYear();
-    if (isNaN(year) || yearStr.length > 4 || year < 0 || year > currentYear) {
-        alert(`❌ Errore! Anno non valido (deve essere tra 0 e ${currentYear}).`);
-        return;
-    }
-    if (isNaN(pages) || pages < 0) {
-        alert(`❌ Errore! Numero di pagine non valido.`);
-        return;
-    }
-
-    const index = library.findIndex(b => b.uniqueId === uniqueId);
-    if (index !== -1) {
-        const currentNotes = library[index].notes;
-        
-        library[index] = {
-            uniqueId: uniqueId, 
-            author: capitalizeWords(author),
-            title: capitalizeWords(title),
-            year: year,
-            pages: pages,
-            genre: capitalizeWords(genre),
-            location: location,
-            notes: currentNotes 
-        };
-        saveLibrary();
-        alert('✅ Modifica Riuscita! Il libro è stato aggiornato con successo.');
-        viewBookDetails(uniqueId);
-    } else {
-        alert('❌ Errore critico! Libro non trovato per la modifica.');
+    if (uniqueId === null) return;
+    
+    const confirmation = confirm(`⚠️ Sei sicuro di voler ELIMINARE DEFINITIVAMENTE il libro "${bookTitle}"? Questa azione è irreversibile.`);
+    if (confirmation) {
+        deleteBook(uniqueId);
     }
 }
 
-// --- FUNZIONE AGGIUNGI LIBRO ---
-
-function addBook() {
-  const author = document.getElementById('author').value.trim();
-  const title = document.getElementById('title').value.trim();
-  const yearStr = document.getElementById('year').value.trim();
-  const pagesStr = document.getElementById('pages').value.trim();
-  const genre = document.getElementById('genre').value;
-  const location = document.getElementById('location').value;
-  const notes = document.getElementById('notes').value.trim();
-
-  if (!author || !title || !yearStr || !genre || genre === '' || !location) {
-    alert('⚠️ Attenzione! Compila tutti i campi obbligatori.');
-    return;
-  }
-
-  if (!/^[a-zA-Z\sàèéìòùáéíóúçñ']+$/.test(author)) {
-    alert('❌ Errore! Il campo Autore deve contenere solo lettere.');
-    return;
-  }
-  const year = parseInt(yearStr);
-  const pages = pagesStr ? parseInt(pagesStr) : 0;
-  const currentYear = new Date().getFullYear();
-  if (isNaN(year) || yearStr.length > 4 || year < 0 || year > currentYear) {
-    alert(`❌ Errore! Anno di pubblicazione non valido (deve essere tra 0 e ${currentYear}).`);
-    return;
-  }
-  if (isNaN(pages) || pages < 0) {
-    alert(`❌ Errore! Numero di pagine non valido.`);
-    return;
-  }
-  
-  library.push({ 
-    uniqueId: nextId++,
-    author: capitalizeWords(author), 
-    title: capitalizeWords(title), 
-    year: year, 
-    pages: pages,
-    genre: capitalizeWords(genre), 
-    location: location,
-    notes: notes 
-  });
-  
-  saveLibrary();
-  alert(`➕ Libro Aggiunto! "${capitalizeWords(title)}" è ora nella tua Biblioteca.`);
-
-  hideAllPanels();
-}
-
-
-// --- RICERCA DINAMICA ---
 
 function dynamicSearch() {
     const q = document.getElementById('searchQuery').value.toLowerCase().trim();
@@ -712,7 +320,7 @@ function dynamicSearch() {
         b.genre.toLowerCase().includes(q) || 
         b.year.toString().includes(q) ||     
         b.location.toLowerCase().includes(q) 
-    ).sort((a, b) => a.uniqueId - b.uniqueId);
+    ).sort((a, b) => a.title.localeCompare(b.title));
 
     if (filtered.length === 0) {
         listContainer.innerHTML = '<p style="text-align:center; color:#666; padding: 20px;">🤷 Nessun libro trovato. Prova una ricerca diversa o aggiungi un nuovo libro.</p>';
@@ -735,31 +343,6 @@ function dynamicSearch() {
 }
 
 
-// --- FUNZIONI ELIMINAZIONE ---
-
-function confirmDelete(bookTitle) {
-    const uniqueId = currentBookIdToEdit;
-    if (uniqueId === null) return;
-    
-    const confirmation = confirm(`⚠️ Sei sicuro di voler ELIMINARE DEFINITIVAMENTE il libro "${bookTitle}"? Questa azione è irreversibile.`);
-    if (confirmation) {
-        deleteBook(uniqueId);
-    }
-}
-
-function deleteBook(uniqueId) {
-    const initialLength = library.length;
-    library = library.filter(b => b.uniqueId !== uniqueId);
-
-    if (library.length < initialLength) {
-        saveLibrary();
-        alert('🗑️ Eliminazione Riuscita! Il libro è stato rimosso dalla Biblioteca.');
-        hideAllPanels();
-    } else {
-        alert('❌ Errore! Non è stato possibile eliminare il libro.');
-    }
-}
-
 // --- Listener per il salvataggio automatico delle note ---
 document.addEventListener('DOMContentLoaded', () => {
     const notesArea = document.getElementById('bookNotesArea');
@@ -776,5 +359,3 @@ document.addEventListener('DOMContentLoaded', () => {
 // CHIAMATA INIZIALE
 loadLibrary(); 
 </script>
-</body>
-</html>
