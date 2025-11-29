@@ -1,6 +1,7 @@
 <script type="module">
+// NOTA: Abbiamo cambiato <script> in <script type="module"> per usare 'import'
 // ----------------------------------------------------------------------------------
-// PASSO 1: LIBRERIE FIREBASE E CONFIGURAZIONE (INTEGRATE E CORRETTE)
+// PASSO 1: LIBRERIE FIREBASE E CONFIGURAZIONE (INTEGRATE E AGGIORNATE)
 // ----------------------------------------------------------------------------------
 
 // Import necessari per l'App e per Firestore (il database)
@@ -8,15 +9,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebas
 import { getFirestore, collection, getDocs, addDoc, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 
-// CONFIGURAZIONE PERSONALE PRESA DALLA CONSOLE E VERIFICATA
+// CONFIGURAZIONE FINALE E CORRETTA
 const firebaseConfig = {
     apiKey: "AIzaSyCOD5J_2s4AOXFWpgq4_O5PLox-Kb0xDXQ",
     authDomain: "biblioteca-sarno-e-zazzaro.firebaseapp.com",
     projectId: "biblioteca-sarno-e-zazzaro",
-    storageBucket: "biblioteca-sarno-e-zazzaro.appspot.com", // USO DELLA FORMA STABILE
+    // CORREZIONE DEFINITIVA: Forma stabile per l'inizializzazione
+    storageBucket: "biblioteca-sarno-e-zazzaro.appspot.com", 
     messagingSenderId: "47424170960",
-    appId: "1:47424170960:web:f88feb1c208383682467d5",
-    measurementId: "G-GDLWFWX9JP" 
+    appId: "1:47424170960:web:847da5bd7a7a17492467d5", // NUOVO ID
+    measurementId: "G-H3EFDNBM40" // NUOVO ID
 };
 
 
