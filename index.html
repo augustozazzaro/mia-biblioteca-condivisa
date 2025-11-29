@@ -8,19 +8,19 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import { getFirestore, collection, getDocs, addDoc, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// Import Analytics, ma non è strettamente necessario per l'app
-// import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics.js";
-
 
 // CONFIGURAZIONE PERSONALE PRESA DALLA CONSOLE
 const firebaseConfig = {
+    // Ho rimosso le virgole finali dalle linee precedenti (se c'erano) per sicurezza:
     apiKey: "AIzaSyCOD5J_2s4AOXFWpgq4_O5PLox-Kb0xDXQ",
     authDomain: "biblioteca-sarno-e-zazzaro.firebaseapp.com",
     projectId: "biblioteca-sarno-e-zazzaro",
-    storageBucket: "biblioteca-sarno-e-zazzaro.firebasestorage.app",
+    // Correzione: storageBucket spesso usa appspot.com e non ha il percorso finale
+    storageBucket: "biblioteca-sarno-e-zazzaro.appspot.com", 
     messagingSenderId: "47424170960",
     appId: "1:47424170960:web:f88feb1c208383682467d5",
-    measurementId: "G-GDLWFWX9JP"
+    // La riga successiva è l'ultima, SENZA virgola
+    measurementId: "G-GDLWFWX9JP" 
 };
 
 
@@ -32,116 +32,109 @@ const libraryCollection = collection(db, "libri"); // Collezione chiamata 'libri
 // ----------------------------------------------------------------------------------
 // DATI LOCALI E COSTANTI
 // ----------------------------------------------------------------------------------
-let library = []; 
-let currentBookIdToEdit = null; 
-let nextId = 1; // Mantenuto solo per la compatibilità ma non usato per ID reali
+let library = []; 
+let currentBookIdToEdit = null; 
+let nextId = 1; 
 
 const LOCATIONS = ["INGRESSO", "CAMERA ENRICO", "CAMERA AUGUSTO", "CAMERA EMMA E ALBERTO", "SALOTTO", "CUCINA", "UNIVERSITÀ", "POLLA"];
 const GENRES = ["Romanzo", "Saggio", "Fantasy", "Thriller", "Giallo", "Storico", "Biografia", "Poesia", "Fantascienza", "Horror", "Bambini", "Graphic Novel", "Filosofia", "Economia", "Finanza", "Scienza", "Arte", "Altro"];
 
 
-// --- FUNZIONI DI DATABASE ASINCRONE (RESCRIZIONE) ---
+// --- FUNZIONI DI DATABASE ASINCRONE ---
 
 async function loadLibrary() {
-    console.log("Tentativo di caricamento dati dal cloud...");
-    library = [];
-    try {
-        const querySnapshot = await getDocs(libraryCollection);
-        querySnapshot.forEach((doc) => {
-            // Salviamo l'ID di Firestore (doc.id) come 'uniqueId'
-            library.push({ ...doc.data(), uniqueId: doc.id }); 
-        });
-        
-        library.sort((a, b) => a.title.localeCompare(b.title));
+    console.log("Tentativo di caricamento dati dal cloud...");
+    library = [];
+    try {
+        const querySnapshot = await getDocs(libraryCollection);
+        querySnapshot.forEach((doc) => {
+            library.push({ ...doc.data(), uniqueId: doc.id }); 
+        });
+        
+        library.sort((a, b) => a.title.localeCompare(b.title));
 
-        document.getElementById('searchQuery').value = ''; 
-        dynamicSearch(); 
-        console.log(`Caricamento completato. Trovati ${library.length} libri.`);
-        
-    } catch (e) {
-        console.error("Errore durante il caricamento da Firestore: ", e);
-        // Alert specifico per debug iniziale:
-        alert("❌ Errore! Controlla la console di Firebase: hai abilitato Firestore Database in Modalità Test?");
-        document.getElementById('book-list-container').innerHTML = '<p style="text-align:center; color:#666; padding: 20px;">Non è stato possibile caricare i dati. Database offline?</p>';
-    }
+        document.getElementById('searchQuery').value = ''; 
+        dynamicSearch(); 
+        console.log(`Caricamento completato. Trovati ${library.length} libri.`);
+        
+    } catch (e) {
+        console.error("Errore durante il caricamento da Firestore: ", e);
+        // Se la connessione fallisce per qualsiasi motivo (anche credenziali errate), mostra l'alert
+        alert("❌ Errore! Connessione fallita. Controlla le credenziali Firebase e le regole di sicurezza.");
+        document.getElementById('book-list-container').innerHTML = '<p style="text-align:center; color:#666; padding: 20px;">Non è stato possibile caricare i dati. Database offline?</p>';
+    }
 }
 
-
-// --- FUNZIONE INSERIMENTO LIBRO ---
 
 async function addBook() {
-  const author = document.getElementById('author').value.trim();
-  const title = document.getElementById('title').value.trim();
-  const yearStr = document.getElementById('year').value.trim();
-  const pagesStr = document.getElementById('pages').value.trim();
-  const genre = document.getElementById('genre').value;
-  const location = document.getElementById('location').value;
-  const notes = document.getElementById('notes').value.trim();
+  const author = document.getElementById('author').value.trim();
+  const title = document.getElementById('title').value.trim();
+  const yearStr = document.getElementById('year').value.trim();
+  const pagesStr = document.getElementById('pages').value.trim();
+  const genre = document.getElementById('genre').value;
+  const location = document.getElementById('location').value;
+  const notes = document.getElementById('notes').value.trim();
 
-  if (!author || !title || !yearStr || !genre || genre === '' || !location) {
-    alert('⚠️ Attenzione! Compila tutti i campi obbligatori.');
-    return;
-  }
-  if (!/^[a-zA-Z\sàèéìòùáéíóúçñ']+$/.test(author)) {
-    alert('❌ Errore! Il campo Autore deve contenere solo lettere.');
-    return;
-  }
-  const year = parseInt(yearStr);
-  const pages = pagesStr ? parseInt(pagesStr) : 0;
-  const currentYear = new Date().getFullYear();
-  if (isNaN(year) || yearStr.length > 4 || year < 0 || year > currentYear) {
-    alert(`❌ Errore! Anno di pubblicazione non valido.`);
-    return;
-  }
-  if (isNaN(pages) || pages < 0) {
-    alert(`❌ Errore! Numero di pagine non valido.`);
-    return;
-  }
-  
-  const newBookData = { 
-    author: capitalizeWords(author), 
-    title: capitalizeWords(title), 
-    year: year, 
-    pages: pages,
-    genre: capitalizeWords(genre), 
-    location: location,
-    notes: notes 
-  };
-  
-  try {
-      // Invia i dati al database, Firebase creerà un ID unico
-      await addDoc(libraryCollection, newBookData);
-      alert(`➕ Libro Aggiunto! "${newBookData.title}" è ora condiviso nel Cloud.`);
-      hideAllPanels();
-      loadLibrary(); // Ricarica i dati per aggiornare la lista in tempo reale per tutti
-  } catch (e) {
-      console.error("Errore durante l'aggiunta a Firestore: ", e);
-      alert("❌ Errore! Non è stato possibile aggiungere il libro al database.");
-  }
+  if (!author || !title || !yearStr || !genre || genre === '' || !location) {
+    alert('⚠️ Attenzione! Compila tutti i campi obbligatori.');
+    return;
+  }
+  if (!/^[a-zA-Z\sàèéìòùáéíóúçñ']+$/.test(author)) {
+    alert('❌ Errore! Il campo Autore deve contenere solo lettere.');
+    return;
+  }
+  const year = parseInt(yearStr);
+  const pages = pagesStr ? parseInt(pagesStr) : 0;
+  const currentYear = new Date().getFullYear();
+  if (isNaN(year) || yearStr.length > 4 || year < 0 || year > currentYear) {
+    alert(`❌ Errore! Anno di pubblicazione non valido.`);
+    return;
+  }
+  if (isNaN(pages) || pages < 0) {
+    alert(`❌ Errore! Numero di pagine non valido.`);
+    return;
+  }
+  
+  const newBookData = { 
+    author: capitalizeWords(author), 
+    title: capitalizeWords(title), 
+    year: year, 
+    pages: pages,
+    genre: capitalizeWords(genre), 
+    location: location,
+    notes: notes 
+  };
+  
+  try {
+      await addDoc(libraryCollection, newBookData);
+      alert(`➕ Libro Aggiunto! "${newBookData.title}" è ora condiviso nel Cloud.`);
+      hideAllPanels();
+      loadLibrary(); 
+  } catch (e) {
+      console.error("Errore durante l'aggiunta a Firestore: ", e);
+      alert("❌ Errore! Non è stato possibile aggiungere il libro al database.");
+  }
 }
 
 
-// --- FUNZIONE MODIFICA (AGGIORNATA) ---
-
 async function saveEditedBook() {
-    const uniqueId = currentBookIdToEdit;
-    if (uniqueId === null) {
-        alert('Errore: Nessun libro selezionato per la modifica.');
-        return;
-    }
+    const uniqueId = currentBookIdToEdit;
+    if (uniqueId === null) {
+        alert('Errore: Nessun libro selezionato per la modifica.');
+        return;
+    }
 
-    const author = document.getElementById('edit-author').value.trim();
-    const title = document.getElementById('edit-title').value.trim();
-    const yearStr = document.getElementById('edit-year').value.trim();
-    const pagesStr = document.getElementById('edit-pages').value.trim();
-    const genre = document.getElementById('edit-genre').value;
-    const location = document.getElementById('edit-location').value;
-    
-    // Validazione (omessa per brevità ma presente)
-    if (!author || !title || !yearStr || !genre || genre === '' || !location) {
-        alert('⚠️ Attenzione! Compila tutti i campi obbligatori.');
-        return;
-    }
+    const author = document.getElementById('edit-author').value.trim();
+    const title = document.getElementById('edit-title').value.trim();
+    const yearStr = document.getElementById('edit-year').value.trim();
+    const pagesStr = document.getElementById('edit-pages').value.trim();
+    const genre = document.getElementById('edit-genre').value;
+    const location = document.getElementById('edit-location').value;
+    
+    if (!author || !title || !yearStr || !genre || genre === '' || !location) {
+        alert('⚠️ Attenzione! Compila tutti i campi obbligatori.');
+        return;
+    }
     if (!/^[a-zA-Z\sàèéìòùáéíóúçñ']+$/.test(author)) { alert('❌ Errore! Il campo Autore deve contenere solo lettere.'); return; }
     const year = parseInt(yearStr);
     const pages = pagesStr ? parseInt(pagesStr) : 0;
@@ -149,213 +142,208 @@ async function saveEditedBook() {
     if (isNaN(year) || yearStr.length > 4 || year < 0 || year > currentYear) { alert(`❌ Errore! Anno non valido.`); return; }
     if (isNaN(pages) || pages < 0) { alert(`❌ Errore! Numero di pagine non valido.`); return; }
     
-    saveNotesFromViewPanel();
-    const oldBook = library.find(b => b.uniqueId === uniqueId);
+    saveNotesFromViewPanel();
+    const oldBook = library.find(b => b.uniqueId === uniqueId);
 
-    const updatedData = {
-        author: capitalizeWords(author),
-        title: capitalizeWords(title),
-        year: year,
-        pages: pages,
-        genre: capitalizeWords(genre),
-        location: location,
-        notes: oldBook ? oldBook.notes : '' // Usa le note salvate dall'array locale
-    };
-    
-    try {
-        // Riferimento al documento usando l'ID di Firestore (uniqueId)
-        const bookRef = doc(db, "libri", uniqueId);
-        await updateDoc(bookRef, updatedData);
-        alert('✅ Modifica Riuscita! Il libro è stato aggiornato nel Cloud.');
-        hideAllPanels();
-        loadLibrary();
-    } catch (e) {
-        console.error("Errore durante la modifica su Firestore: ", e);
-        alert('❌ Errore critico! Impossibile salvare le modifiche.');
-    }
+    const updatedData = {
+        author: capitalizeWords(author),
+        title: capitalizeWords(title),
+        year: year,
+        pages: pages,
+        genre: capitalizeWords(genre),
+        location: location,
+        notes: oldBook ? oldBook.notes : ''
+    };
+    
+    try {
+        const bookRef = doc(db, "libri", uniqueId);
+        await updateDoc(bookRef, updatedData);
+        alert('✅ Modifica Riuscita! Il libro è stato aggiornato nel Cloud.');
+        hideAllPanels();
+        loadLibrary();
+    } catch (e) {
+        console.error("Errore durante la modifica su Firestore: ", e);
+        alert('❌ Errore critico! Impossibile salvare le modifiche.');
+    }
 }
 
-
-// --- FUNZIONE ELIMINAZIONE (AGGIORNATA) ---
 
 async function deleteBook(uniqueId) {
-    try {
-        await deleteDoc(doc(db, "libri", uniqueId));
-        alert('🗑️ Eliminazione Riuscita! Il libro è stato rimosso dal Cloud.');
-        hideAllPanels();
-        loadLibrary();
-    } catch (e) {
-        console.error("Errore durante l'eliminazione su Firestore: ", e);
-        alert('❌ Errore! Non è stato possibile eliminare il libro.');
-    }
+    try {
+        await deleteDoc(doc(db, "libri", uniqueId));
+        alert('🗑️ Eliminazione Riuscita! Il libro è stato rimosso dal Cloud.');
+        hideAllPanels();
+        loadLibrary();
+    } catch (e) {
+        console.error("Errore durante l'eliminazione su Firestore: ", e);
+        alert('❌ Errore! Non è stato possibile eliminare il libro.');
+    }
 }
 
 
-// --- RESTO DEL CODICE (Non richiede modifiche, solo la rimozione di localStorage.setItem) ---
+// --- RESTO DEL CODICE ---
 
 function capitalizeWords(str) {
-    if (!str) return '';
-    return str.replace(/\s+/g, ' ').trim().toLowerCase().split(' ').map(word => 
-        word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
+    if (!str) return '';
+    return str.replace(/\s+/g, ' ').trim().toLowerCase().split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
 }
 
 function saveNotesFromViewPanel() {
-    // La logica salva solo nell'array locale, la sincronizzazione al cloud avviene solo con saveEditedBook
-    if (currentBookIdToEdit !== null) {
-        const notesArea = document.getElementById('bookNotesArea');
-        const book = library.find(b => b.uniqueId === currentBookIdToEdit);
+    if (currentBookIdToEdit !== null) {
+        const notesArea = document.getElementById('bookNotesArea');
+        const book = library.find(b => b.uniqueId === currentBookIdToEdit);
 
-        if (book && notesArea) {
-            if (book.notes !== notesArea.value) {
-                book.notes = notesArea.value.trim();
-                // NON SALVIAMO QUI SU FIRESTORE (troppe chiamate), la nota sarà inclusa nel saveEditedBook o al prossimo refresh
-            }
-        }
-    }
+        if (book && notesArea) {
+            if (book.notes !== notesArea.value) {
+                book.notes = notesArea.value.trim();
+            }
+        }
+    }
 }
 
 function populateSelects() {
-    const locSelects = document.querySelectorAll('#location, #edit-location');
-    locSelects.forEach(select => {
-        select.innerHTML = '';
-        LOCATIONS.forEach(loc => {
-            const opt = document.createElement('option');
-            opt.textContent = loc;
-            select.appendChild(opt);
-        });
-    });
+    const locSelects = document.querySelectorAll('#location, #edit-location');
+    locSelects.forEach(select => {
+        select.innerHTML = '';
+        LOCATIONS.forEach(loc => {
+            const opt = document.createElement('option');
+            opt.textContent = loc;
+            select.appendChild(opt);
+        });
+    });
 
-    const genSelects = document.querySelectorAll('#genre, #edit-genre');
-    genSelects.forEach(select => {
-        select.innerHTML = '';
-        const defaultOpt = document.createElement('option');
-        defaultOpt.textContent = "Seleziona Genere";
-        defaultOpt.value = "";
-        select.appendChild(defaultOpt);
-        
-        GENRES.forEach(gen => {
-            const opt = document.createElement('option');
-            opt.textContent = gen;
-            select.appendChild(opt);
-        });
-    });
+    const genSelects = document.querySelectorAll('#genre, #edit-genre');
+    genSelects.forEach(select => {
+        select.innerHTML = '';
+        const defaultOpt = document.createElement('option');
+        defaultOpt.textContent = "Seleziona Genere";
+        defaultOpt.value = "";
+        select.appendChild(defaultOpt);
+        
+        GENRES.forEach(gen => {
+            const opt = document.createElement('option');
+            opt.textContent = gen;
+            select.appendChild(opt);
+        });
+    });
 }
 
 
 function hideAllPanels() {
-    saveNotesFromViewPanel();
-    
-    document.getElementById('addPanel').style.display = 'none';
-    document.getElementById('editPanel').style.display = 'none';
-    document.getElementById('viewPanel').style.display = 'none';
-    currentBookIdToEdit = null;
-    dynamicSearch();
+    saveNotesFromViewPanel();
+    
+    document.getElementById('addPanel').style.display = 'none';
+    document.getElementById('editPanel').style.display = 'none';
+    document.getElementById('viewPanel').style.display = 'none';
+    currentBookIdToEdit = null;
+    dynamicSearch();
 }
 
 function showAddPanel() {
-    hideAllPanels();
-    document.getElementById('addPanel').style.display = 'block';
-    
-    document.getElementById('author').value = '';
-    document.getElementById('title').value = '';
-    document.getElementById('year').value = '';
-    document.getElementById('pages').value = '';
-    document.getElementById('genre').value = ''; 
-    document.getElementById('location').value = 'INGRESSO';
-    document.getElementById('notes').value = '';
+    hideAllPanels();
+    document.getElementById('addPanel').style.display = 'block';
+    
+    document.getElementById('author').value = '';
+    document.getElementById('title').value = '';
+    document.getElementById('year').value = '';
+    document.getElementById('pages').value = '';
+    document.getElementById('genre').value = ''; 
+    document.getElementById('location').value = 'INGRESSO';
+    document.getElementById('notes').value = '';
 }
 
 
 function viewBookDetails(uniqueId) {
-    saveNotesFromViewPanel(); 
-    
-    hideAllPanels(); 
-    
-    const book = library.find(b => b.uniqueId === uniqueId);
-    if (!book) return;
-    
-    currentBookIdToEdit = uniqueId;
+    saveNotesFromViewPanel(); 
+    
+    hideAllPanels(); 
+    
+    const book = library.find(b => b.uniqueId === uniqueId);
+    if (!book) return;
+    
+    currentBookIdToEdit = uniqueId;
 
-    document.getElementById('viewPanelTitle').textContent = book.title;
-    
-    const detailsDiv = document.getElementById('singleBookDetails');
-    const locationBox = document.getElementById('locationBox');
-    
-    locationBox.innerHTML = `◆ ${book.location}`;
+    document.getElementById('viewPanelTitle').textContent = book.title;
+    
+    const detailsDiv = document.getElementById('singleBookDetails');
+    const locationBox = document.getElementById('locationBox');
+    
+    locationBox.innerHTML = `◆ ${book.location}`;
 
-    detailsDiv.innerHTML = `
-        <p><span class="detail-icon">👤</span> <b>Autore:</b> ${book.author}</p>
-        <p><span class="detail-icon">📖</span> <b>Genere:</b> ${book.genre}</p>
-        <p><span class="detail-icon">📅</span> <b>Anno di Pubblicazione:</b> ${book.year}</p>
-        <p><span class="detail-icon">📄</span> <b>Numero Pagine:</b> ${book.pages > 0 ? book.pages : 'N/D'}</p>
-    `;
-    
-    const notesArea = document.getElementById('bookNotesArea');
-    notesArea.value = book.notes || '';
-    
-    document.getElementById('viewPanel').style.display = 'block';
+    detailsDiv.innerHTML = `
+        <p><span class="detail-icon">👤</span> <b>Autore:</b> ${book.author}</p>
+        <p><span class="detail-icon">📖</span> <b>Genere:</b> ${book.genre}</p>
+        <p><span class="detail-icon">📅</span> <b>Anno di Pubblicazione:</b> ${book.year}</p>
+        <p><span class="detail-icon">📄</span> <b>Numero Pagine:</b> ${book.pages > 0 ? book.pages : 'N/D'}</p>
+    `;
+    
+    const notesArea = document.getElementById('bookNotesArea');
+    notesArea.value = book.notes || '';
+    
+    document.getElementById('viewPanel').style.display = 'block';
 }
 
 function confirmDelete(bookTitle) {
-    const uniqueId = currentBookIdToEdit;
-    if (uniqueId === null) return;
-    
-    const confirmation = confirm(`⚠️ Sei sicuro di voler ELIMINARE DEFINITIVAMENTE il libro "${bookTitle}"? Questa azione è irreversibile.`);
-    if (confirmation) {
-        deleteBook(uniqueId);
-    }
+    const uniqueId = currentBookIdToEdit;
+    if (uniqueId === null) return;
+    
+    const confirmation = confirm(`⚠️ Sei sicuro di voler ELIMINARE DEFINITIVAMENTE il libro "${bookTitle}"? Questa azione è irreversibile.`);
+    if (confirmation) {
+        deleteBook(uniqueId);
+    }
 }
 
 
 function dynamicSearch() {
-    const q = document.getElementById('searchQuery').value.toLowerCase().trim();
-    const listContainer = document.getElementById('book-list-container');
-    listContainer.innerHTML = '';
-    
-    const filtered = library.filter(b => 
-        q === '' ||
-        b.title.toLowerCase().includes(q) || 
-        b.author.toLowerCase().includes(q) ||
-        b.genre.toLowerCase().includes(q) || 
-        b.year.toString().includes(q) ||     
-        b.location.toLowerCase().includes(q) 
-    ).sort((a, b) => a.title.localeCompare(b.title));
+    const q = document.getElementById('searchQuery').value.toLowerCase().trim();
+    const listContainer = document.getElementById('book-list-container');
+    listContainer.innerHTML = '';
+    
+    const filtered = library.filter(b => 
+        q === '' ||
+        b.title.toLowerCase().includes(q) || 
+        b.author.toLowerCase().includes(q) ||
+        b.genre.toLowerCase().includes(q) || 
+        b.year.toString().includes(q) ||     
+        b.location.toLowerCase().includes(q) 
+    ).sort((a, b) => a.title.localeCompare(b.title));
 
-    if (filtered.length === 0) {
-        listContainer.innerHTML = '<p style="text-align:center; color:#666; padding: 20px;">🤷 Nessun libro trovato. Prova una ricerca diversa o aggiungi un nuovo libro.</p>';
-        return;
-    }
-    
-    filtered.forEach(b => {
-        const pagesInfo = b.pages > 0 ? `${b.pages} pag` : 'N/D';
-        listContainer.innerHTML += `
-            <div class='book' onclick="viewBookDetails(${b.uniqueId})">
-                <div class="book-title"><span class="list-icon">📖</span> ${b.title}</div>
-                <div class="book-author"><span class="list-icon">👤</span> ${b.author}</div>
-                <div class="book-meta">
-                    <span style="color: #666; font-size: 0.9em;"><span class="list-icon">📅</span> ${b.year} | <span class="list-icon">📄</span> ${pagesInfo}</span>
-                    <span class="location-tag">◆ ${b.location}</span>
-                </div>
-            </div>
-        `;
-    });
+    if (filtered.length === 0) {
+        listContainer.innerHTML = '<p style="text-align:center; color:#666; padding: 20px;">🤷 Nessun libro trovato. Prova una ricerca diversa o aggiungi un nuovo libro.</p>';
+        return;
+    }
+    
+    filtered.forEach(b => {
+        const pagesInfo = b.pages > 0 ? `${b.pages} pag` : 'N/D';
+        listContainer.innerHTML += `
+            <div class='book' onclick="viewBookDetails(${b.uniqueId})">
+                <div class="book-title"><span class="list-icon">📖</span> ${b.title}</div>
+                <div class="book-author"><span class="list-icon">👤</span> ${b.author}</div>
+                <div class="book-meta">
+                    <span style="color: #666; font-size: 0.9em;"><span class="list-icon">📅</span> ${b.year} | <span class="list-icon">📄</span> ${pagesInfo}</span>
+                    <span class="location-tag">◆ ${b.location}</span>
+                </div>
+            </div>
+        `;
+    });
 }
 
 
 // --- Listener per il salvataggio automatico delle note ---
 document.addEventListener('DOMContentLoaded', () => {
-    const notesArea = document.getElementById('bookNotesArea');
-    if (notesArea) {
-        let timeout = null;
-        notesArea.addEventListener('input', () => {
-            clearTimeout(timeout);
-            timeout = setTimeout(saveNotesFromViewPanel, 2000); 
-        });
-    }
+    const notesArea = document.getElementById('bookNotesArea');
+    if (notesArea) {
+        let timeout = null;
+        notesArea.addEventListener('input', () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(saveNotesFromViewPanel, 2000); 
+        });
+    }
 });
 
 
 // CHIAMATA INIZIALE
-loadLibrary(); 
+loadLibrary(); 
 </script>
