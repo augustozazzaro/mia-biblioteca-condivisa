@@ -11,14 +11,14 @@ import { getFirestore, collection, getDocs, addDoc, updateDoc, doc, deleteDoc } 
 
 // CONFIGURAZIONE PERSONALE PRESA DALLA CONSOLE
 const firebaseConfig = {
-    apiKey: "AIzaSyCOD5J_2s4AOXFWpgq4_O5PLox-Kb0xDXQ",
-    authDomain: "biblioteca-sarno-e-zazzaro.firebaseapp.com",
-    projectId: "biblioteca-sarno-e-zazzaro",
-    // VALORE ORIGINALE FORNITO DALLA TUA CONSOLE:
-    storageBucket: "biblioteca-sarno-e-zazzaro.firebasestorage.app", 
-    messagingSenderId: "47424170960",
-    appId: "1:47424170960:web:f88feb1c208383682467d5",
-    measurementId: "G-GDLWFWX9JP" 
+  apiKey: "AIzaSyCOD5J_2s4AOXFWpgq4_O5PLox-Kb0xDXQ",
+  authDomain: "biblioteca-sarno-e-zazzaro.firebaseapp.com",
+  projectId: "biblioteca-sarno-e-zazzaro",
+  // CORREZIONE FINALE: Usa la forma breve per la massima compatibilità
+  storageBucket: "biblioteca-sarno-e-zazzaro.appspot.com", 
+  messagingSenderId: "47424170960",
+  appId: "1:47424170960:web:f88feb1c208383682467d5",
+  measurementId: "G-GDLWFWX9JP"
 };
 
 
@@ -57,6 +57,7 @@ async function loadLibrary() {
         
     } catch (e) {
         console.error("Errore durante il caricamento da Firestore: ", e);
+        // Se la connessione fallisce per qualsiasi motivo (anche credenziali errate), mostra l'alert
         alert("❌ Errore! Connessione fallita. Controlla le credenziali Firebase e le regole di sicurezza.");
         document.getElementById('book-list-container').innerHTML = '<p style="text-align:center; color:#666; padding: 20px;">Non è stato possibile caricare i dati. Database offline?</p>';
     }
